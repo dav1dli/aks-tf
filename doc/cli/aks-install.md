@@ -1,8 +1,34 @@
-# Azure CLI commands used to create AKS infrastructure
+# Azure login
 
 Account setup:
 * Login to Azure: `az login` 
 * If needed select a subscription: `az account set --subscription XXXX-YYYY-ZZZZ`
+
+# Azure CLI commands used to create a cloud storage for terraform state
+Create a cloud storage where the terraform state of the automation will be stored:
+```
+#!/bin/bash
+RESOURCE_GROUP_NAME=RG-EUR-WW-POC-DL
+STORAGE_ACCOUNT_NAME=sapocdltfstate
+CONTAINER_NAME=tfstate
+az storage account create \
+  --resource-group $RESOURCE_GROUP_NAME \
+  --name $STORAGE_ACCOUNT_NAME \
+  --sku Standard_LRS \
+  --encryption-services blob
+az storage container create \
+  --name $CONTAINER_NAME \
+  --account-name $STORAGE_ACCOUNT_NAME
+```
+Get access key to the storage account:
+```
+az storage account keys list \
+  --resource-group $RESOURCE_GROUP_NAME \
+  --account-name $STORAGE_ACCOUNT_NAME \
+  --query '[0].value' -o tsv
+```
+Terraform expects environment variable `ARM_ACCESS_KEY` to be set to storage account access key.
+# Azure CLI commands used to create AKS infrastructure
 
 Create VNET and subnets:
 ```

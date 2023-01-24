@@ -1,0 +1,16 @@
+linuxpkgs:
+  - python3-pip
+  - ca-certificates
+  - curl
+  - apt-transport-https
+  - lsb-release
+  - gnupg
+  - wget
+  - unzip
+  - software-properties-common
+  - gnupg2
+  - azure-cli
+  - docker.io
+ingress_nginx_repo: 'https://kubernetes.github.io/ingress-nginx'
+ingress_nginx_ns: ingress-nginx
+certificate_secret: my-certificate

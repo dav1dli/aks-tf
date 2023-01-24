@@ -2,7 +2,7 @@
 
 # Prerequisites
 * access to Azure subscription with sufficient permissions
-* terraform
+* terraform >=1.2.9 <1.3 [GitHub issue](https://github.com/hashicorp/terraform/issues/32146)
 * azure-cli
 * kubectl
 * ssh key pair
@@ -29,29 +29,55 @@ ssh-keygen \
     -f ~/.ssh/aks-tf-ssh-key
 ```
 ## Terraform
-
+### Bootstrap
 Initialize terraform:
 ```
-terraform -chdir=terraform  init -var-file=../environments/test/env.tfvars
+terraform -chdir=tf-bootstrap  init -var-file=../environments/poc/env.tfvars
+```
+Import pre-existing resource group: 
+```
+terraform -chdir=tf-bootstrap import azurerm_resource_group.tfstate \
+   /subscriptions/XXXX-YYYY-ZZZZ/resourceGroups/RG-EUR-WW-POC-DL
+```
+Plan:
+```
+terraform -chdir=tf-bootstrap plan \
+  -var-file=../environments/poc/env.tfvars \
+  -out=tf-bootstrap.tflan
+```
+Apply:
+```
+terraform -chdir=tf-bootstrap apply \
+  -input=false -auto-approve tf-bootstrap.tflan
+```
+The automation outputs its key parameters needed to setup the cloud storage backend for terraform. 
+### Cloud infrastructure
+Terraform expects environment variable `ARM_ACCESS_KEY` to be set to storage account access key.
+Initialize terraform:
+```
+export ARM_ACCESS_KEY=$(az storage account keys list \
+  --resource-group RG-EUR-WW-POC-DL \
+  --account-name sapocdltfstate \
+  --query '[0].value' -o tsv)
+terraform -chdir=terraform  init \
+  -var-file=../environments/poc/env.tfvars \
+  -backend-config=../environments/poc/backend.tfvars
+terraform import azurerm_resource_group.rg \
+  /subscriptions/XXXX-YYYY-ZZZZ/resourceGroups/RG-EUR-WW-POC-DL
 ```
 Plan:
 ```
 terraform -chdir=terraform  plan \
-  -var-file=../environments/test/env.tfvars \
+  -var-file=../environments/poc/env.tfvars \
   -var ssh_public_key=~/.ssh/aks-tf-ssh-key.pub \
   -out=test.tflan
-```
-If necessary import pre-existing resources: 
-```
-terraform -chdir=terraform import azurerm_resource_group.aks_rg \
-   /subscriptions/XXXX-YYYY-ZZZZ/resourceGroups/RG-EUR-WW-POC-DL
 ```
 Apply:
 ```
 terraform -chdir=terraform apply \
   -input=false -auto-approve test.tflan
 ```
-At the end of successful deployment cluster parameters are printed out.
+A the end of successful deployment cluster parameters are printed out.
 
 # Configuration
 
@@ -68,12 +94,22 @@ az aks get-credentials --resource-group RG-EUR-WW-POC-DL --name AKS-EUR-WW-POC-D
 ```
 At this point `kubectl` cli can be used to operate the cluster: `kubectl get nodes`.
 
-# Use jumphost
+# Use the jumphost
 
-If the cluster is private, i.e. API server is not accessible it can be accessible only from the VNET.
-For this purpose a jumphost - a Linux VM with management tools is provisioned. The jumphost is customized using `terraform/files/mng-vm-init.sh` script. 
+A private cluster (API server is not accessible) can be accessible only from the VNET.
+For this purpose a jumphost - a Linux VM with management tools - is provisioned. The jumphost is customized using `terraform/files/mng-vm-init.sh` script. 
 
-In addition Azure Bastion interface is created. It allows to access the jumphost in a web browser.
+In addition Azure Bastion interface is created. It allows the jumphost access via the web browser.
 
-Use bastion to connect to management VM / jumphost:
+Use bastion to connect to management VM / jumphost: \
 select the jumphost in Azure portal, click Connect, select Bastion, specify username: the admin user, authentication type: SSH private key, File: SSH private key. Click Connect. A shell session will open in a web browser.
+
+The jumphost VM is provisioned with a managed identity to which required permissions are granted. To login with the managed identity: `az login --identity`.
+
+*Note: only minimal permissions are provided, so not all interactive functions are available. For troubleshooting regular AD credentials with `az login` can be used.*
+
+For example, get a secret from a key vault containing a ssh private key:
+```
+az keyvault secret show -n LXPOCDL --vault-name KV-EUR-WW-POC-DL \
+  --query "value" --output tsv | base64 -d
+```

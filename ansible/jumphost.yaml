@@ -1,0 +1,78 @@
+---
+- name: Configure jump host
+  hosts: jumphost
+  gather_facts: False
+  tasks:
+    - name: install system packages
+      ansible.builtin.package:
+        name: "{{ linuxpkgs }}"
+        state: present
+      become: yes
+    - name: enable docker
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: yes
+      become: yes
+    - name: enable docker for user
+      ansible.builtin.user:
+        name: azureuser
+        groups: docker
+        append: yes
+      become: yes
+    - name: install kubectl
+      community.general.snap:
+        name: 
+          - kubectl
+          - helm
+        classic: yes
+      become: yes
+    - name: kubeconfig access permissions
+      ansible.builtin.file:
+        path: '/home/azureuser/.kube/config'
+        mode: '0400'
+    - name: check ansible
+      command: which ansible
+      register: ansible_check
+    - name: install ansible
+      shell: "python3 -m pip install ansible"
+      become: yes
+      when: ansible_check.stdout.find('not found') != -1
+    - name: install k8s kubernetes module
+      shell: "pip install kubernetes"
+    - name: get ansible collections
+      shell: "ansible-galaxy collection list"
+    - name: create ingress namespace
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Namespace
+        name: "{{ ingress_nginx_ns }}"
+        state: present
+    - name: configure secret provider
+      k8s:
+        state: present
+        definition: "{{ lookup('template', 'secretproviderclass.yaml.j2')}}"
+      when: kvsecretprovider|bool == true
+    - name: add helm repo
+      kubernetes.core.helm_repository:
+        name: ingress-nginx
+        repo_url: "{{ ingress_nginx_repo }}"
+    - name: deploy Nginx ingress controller with a certificate in KV
+      kubernetes.core.helm:
+        name: ingress-nginx
+        chart_ref: ingress-nginx/ingress-nginx
+        release_namespace: "{{ ingress_nginx_ns }}"
+        values: "{{ lookup('template', 'ingress-nginx.yaml.j2') | from_yaml }}"
+        wait: true
+      when: kvsecretprovider|bool == true
+    - name: deploy Nginx ingress controller with cert-manager
+      kubernetes.core.helm:
+        name: ingress-nginx
+        chart_ref: ingress-nginx/ingress-nginx
+        release_namespace: "{{ ingress_nginx_ns }}"
+        values: "{{ lookup('template', 'ingress-nginx-selfsigned.yaml.j2') | from_yaml }}"
+        wait: true
+      when: certmanager|bool == true
+    - name: deploy cert-manager
+      debug: msg="Deploy cert-manager"
+      when: certmanager|bool == true

@@ -1,0 +1,27 @@
+controller:
+  replicaCount: 1
+  service:
+    loadBalancerIP: {{ ingress_public_ip }}
+    type: LoadBalancer
+    externalTrafficPolicy: Local
+    annotations:
+      service.beta.kubernetes.io/azure-load-balancer-internal: "false"
+      service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /healthz
+  nodeSelector:
+    kubernetes.azure.com/mode: "system"
+  tolerations:
+    - key: "CriticalAddonsOnly"
+      operator: "Exists"
+  admissionWebhooks:
+    patch:
+      nodeSelector:
+        kubernetes.azure.com/mode: "system"
+      tolerations:
+        - key: "CriticalAddonsOnly"
+          operator: "Exists"
+defaultBackend:
+  nodeSelector:
+    kubernetes.azure.com/mode: system
+  tolerations:
+    - key: "CriticalAddonsOnly"
+      operator: "Exists"

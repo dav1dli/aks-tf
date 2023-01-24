@@ -12,3 +12,8 @@ output "workspace_id" {
   value = azurerm_log_analytics_workspace.log_analytics_workspace.workspace_id
   description = "Specifies the workspace id of the log analytics workspace"
 }
+output "primary_shared_key" {
+  value = azurerm_log_analytics_workspace.log_analytics_workspace.primary_shared_key
+  description = "Specifies the workspace key of the log analytics workspace"
+  sensitive = true
+}

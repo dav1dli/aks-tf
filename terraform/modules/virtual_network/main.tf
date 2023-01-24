@@ -29,4 +29,19 @@ resource "azurerm_subnet" "subnet" {
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes     = each.value.address_prefixes
+  lifecycle {
+    ignore_changes = [
+        delegation
+    ]
+  }
+  # dynamic "delegation" {
+  #   for_each = lookup(each.value, "delegation", {}) != {} ? [1] : []
+  #   content {
+  #     name = lookup(each.value.delegation, "name", null)
+  #     service_delegation {
+  #       name    = lookup(each.value.delegation.service_delegation, "name", null)
+  #       actions = lookup(each.value.delegation.service_delegation, "actions", null)
+  #     }
+  #   }
+  # }
 }

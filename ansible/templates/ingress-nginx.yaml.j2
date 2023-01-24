@@ -1,0 +1,40 @@
+controller:
+  replicaCount: 1
+  service:
+    loadBalancerIP: {{ ingress_public_ip }}
+    type: LoadBalancer
+    externalTrafficPolicy: Local
+    annotations:
+      service.beta.kubernetes.io/azure-load-balancer-internal: "false"
+      service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /healthz
+  extraArgs:
+    default-ssl-certificate: {{ ingress_nginx_ns }}/ingress-tls-csi
+  extraVolumeMounts:
+  - mountPath: /mnt/secrets-store
+    name: secrets-store-inline
+    readOnly: true
+  extraVolumes:
+  - csi:
+      driver: secrets-store.csi.k8s.io
+      readOnly: true
+      volumeAttributes:
+        secretProviderClass: azure-tls
+    name: secrets-store-inline
+  nodeSelector:
+    kubernetes.azure.com/mode: "system"
+  tolerations:
+    - key: "CriticalAddonsOnly"
+      operator: "Exists"
+  admissionWebhooks:
+    patch:
+      nodeSelector:
+        kubernetes.azure.com/mode: "system"
+      tolerations:
+        - key: "CriticalAddonsOnly"
+          operator: "Exists"
+defaultBackend:
+  nodeSelector:
+    kubernetes.azure.com/mode: system
+  tolerations:
+    - key: "CriticalAddonsOnly"
+      operator: "Exists"

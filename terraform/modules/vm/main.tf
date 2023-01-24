@@ -103,15 +103,72 @@ resource "azurerm_linux_virtual_machine" "virtual_machine" {
     sku       = lookup(var.os_disk_image, "sku", null)
     version   = lookup(var.os_disk_image, "version", null)
   }
-
+  boot_diagnostics {
+    storage_account_uri = var.boot_diagnostics_storage_account == "" ? null : var.boot_diagnostics_storage_account
+  }
   lifecycle {
     ignore_changes = [
         tags
     ]
+  }
+  # This won't work from office network when running locally on Mac because ssh is disabled from GAW network
+  # Use VPN
+  connection {
+    type        = "ssh"
+    user        = var.vm_user
+    private_key = "${file(var.admin_ssh_private_key)}"
+    host        = azurerm_linux_virtual_machine.virtual_machine.public_ip_address
+  }
+  provisioner "remote-exec" {
+    inline = [
+      "mkdir /home/${var.vm_user}/.kube"
+    ]
+  }
+  provisioner "file" {
+    source      = var.kubeconfig
+    destination = "/home/${var.vm_user}/.kube/config"
+
   }
 
   depends_on = [
     azurerm_network_interface.nic,
     azurerm_network_security_group.nsg
   ]
+}
+
+resource "azurerm_monitor_diagnostic_setting" "nsg_settings" {
+  name                       = "DiagnosticsSettings"
+  target_resource_id         = azurerm_network_security_group.nsg.id
+  log_analytics_workspace_id = var.log_analytics_workspace_resource_id
+
+  enabled_log {
+    category = "NetworkSecurityGroupEvent"
+
+    retention_policy {
+      enabled = true
+      days    = var.log_analytics_retention_days
+    }
+  }
+
+ enabled_log {
+    category = "NetworkSecurityGroupRuleCounter"
+
+    retention_policy {
+      enabled = true
+      days    = var.log_analytics_retention_days
+    }
+  }
+}
+
+resource "azurerm_dev_test_global_vm_shutdown_schedule" "autoshutdown" {
+  virtual_machine_id = azurerm_linux_virtual_machine.virtual_machine.id
+  location           = var.location
+  enabled            = true
+
+  daily_recurrence_time = var.shutdown_time
+  timezone              = var.shutdown_timezone
+
+  notification_settings {
+    enabled         = false
+  }
 }

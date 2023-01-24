@@ -31,6 +31,11 @@ variable "log_analytics_workspace_name" {
   default     = ""
   type        = string
 }
+variable "log_analytics_retention_days" {
+  description = "Specifies the number of days of the retention policy"
+  type        = number
+  default     = 30
+}
 
 variable "aks_vnet_address_space" {
   description = "Specifies the address prefix of the AKS subnet"
@@ -63,7 +68,7 @@ variable "pods_subnet_address_prefix" {
 }
 variable "bstn_subnet_name" {
   description = "Specifies the name of the subnet that hosts the nodes"
-  default     =  "PodsSubnet"
+  default     =  "BastionSubnet"
   type        = string
 }
 
@@ -74,7 +79,7 @@ variable "bstn_subnet_address_prefix" {
 }
 variable "mng_subnet_name" {
   description = "Specifies the name of the subnet that hosts the nodes"
-  default     =  "PodsSubnet"
+  default     =  "ManagementSubnet"
   type        = string
 }
 
@@ -83,8 +88,18 @@ variable "mng_subnet_address_prefix" {
   default     =  ["10.0.2.32/27"]
   type        = list(string)
 }
+variable "priv_endpt_subnet_name" {
+  description = "Specifies the name of the subnet that hosts the nodes"
+  default     =  "PrivateEndpointsSubnet"
+  type        = string
+}
+variable "priv_endpt_subnet_address_prefix" {
+  description = "Specifies the address prefix of the subnet that hosts nodes"
+  default     =  ["10.0.2.128/25"]
+  type        = list(string)
+}
 
-# ACR
+# ACR ---------------------------------------------------------------
 variable "acr_name" {
   description = "Specifies the name of the container registry"
   type        = string
@@ -108,7 +123,7 @@ variable "acr_admin_enabled" {
   default     = true
 }
 
-# AKS
+# AKS ---------------------------------------------------------------
 variable "private_cluster_enabled" {
   type = bool  
   description = "AKS access mode: public | private"  
@@ -202,8 +217,12 @@ variable "ssh_private_key" {
   type        = string
   default     = "~/.ssh/aks-tf-ssh-key"
 }
-
-# Key vault
+variable "ingress_host_name" {
+  description = "Specifies the name of the default ingress"
+  type        = string
+  default     = ""
+}
+# Key vault ---------------------------------------------------------------
 variable "key_vault_sku_name" {
   description = "(Required) The Name of the SKU used for this Key Vault. Possible values are standard and premium."
   type        = string
@@ -261,8 +280,39 @@ variable "key_vault_default_action" {
     error_message = "The value of the default action property of the key vault is invalid."
   }
 }
+# Storage account ---------------------------------------------------------------
+variable "storage_account_kind" {
+  description = "(Optional) Specifies the account kind of the storage account"
+  default     = "StorageV2"
+  type        = string
 
-# Jump host
+   validation {
+    condition = contains(["Storage", "StorageV2"], var.storage_account_kind)
+    error_message = "The account kind of the storage account is invalid."
+  }
+}
+variable "storage_account_tier" {
+  description = "(Optional) Specifies the account tier of the storage account"
+  default     = "Standard"
+  type        = string
+
+   validation {
+    condition = contains(["Standard", "Premium"], var.storage_account_tier)
+    error_message = "The account tier of the storage account is invalid."
+  }
+}
+variable "storage_account_replication_type" {
+  description = "(Optional) Specifies the replication type of the storage account"
+  default     = "LRS"
+  type        = string
+
+  validation {
+    condition = contains(["LRS", "ZRS", "GRS", "GZRS", "RA-GRS", "RA-GZRS"], var.storage_account_replication_type)
+    error_message = "The replication type of the storage account is invalid."
+  }
+}
+
+# Jump host ---------------------------------------------------------------
 variable "jump_host_name" {
   description = "Specifies the name of the jump host (bastion)"
   type        = string
@@ -301,6 +351,12 @@ variable "vm_os_disk_image" {
     version   = "latest"
   }
 }
+variable "vm_shutdown_time" {
+  description = "Specifies the time when the VM auto-shuts down"
+  default     = "2000"
+  type        = string
+}
+
 variable "domain_name_label" {
   description = "Specifies the domain name for the jumbox virtual machine"
   default     = ""
@@ -309,5 +365,10 @@ variable "domain_name_label" {
 variable "bastion_name" {
   description = "(Optional) Specifies the name of the bastion host"
   default     = ""
+  type        = string
+}
+variable "nginx_namespace" {
+  description = "AKS namespace for nginx ingress controller"
+  default     = "ingress-nginx"
   type        = string
 }

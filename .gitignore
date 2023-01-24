@@ -2,6 +2,7 @@
 .terraform.*
 
 **/*.tfstate
+**/*.tfplan
 *.tfstate.*
 
 # Crash log files
@@ -9,3 +10,5 @@ crash.log
 crash.*.log
 
 **/*.tfplan
+**/kubeconfig
+**/ansible*.log

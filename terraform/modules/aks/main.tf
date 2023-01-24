@@ -19,8 +19,6 @@ resource "azurerm_kubernetes_cluster" "aks_cluster" {
   dns_prefix               = var.dns_prefix
   private_cluster_enabled  = var.private_cluster_enabled
   azure_policy_enabled     = var.azure_policy_enabled
-
-
   default_node_pool {
     name                   = var.default_node_pool_name
     zones                  = var.default_node_pool_availability_zones
@@ -41,8 +39,10 @@ resource "azurerm_kubernetes_cluster" "aks_cluster" {
   identity {
     type = "SystemAssigned"
   }
+  key_vault_secrets_provider {
+    secret_rotation_enabled = true
+  }
   oms_agent {
-  #  log_analytics_workspace_id = azurerm_log_analytics_workspace.insights.id
     log_analytics_workspace_id = var.log_analytics_workspace_id
   }
   linux_profile {
